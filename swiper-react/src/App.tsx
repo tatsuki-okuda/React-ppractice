@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import "./App.css";
 import { Autoplay } from "swiper";
-import { Swiper, SwiperProps, SwiperSlide } from "swiper/react";
+import { Swiper, SwiperProps, SwiperSlide, } from "swiper/react";
 import { Swiper as SwiperClass } from "swiper/types";
 import "swiper/css";
 
@@ -20,6 +20,11 @@ type ContentsFn = (slide: Slide, index: number) => JSX.Element;
 // constants ---------------------------------------------------------------------------------
 const initialAutoPlaySpeed = 5000;
 
+const VIEW_MODE = {
+  SINGLE: 'single',
+  MULTI: 'multi'
+} as const;
+type ViewModeTypes = typeof VIEW_MODE[keyof typeof VIEW_MODE]
 
 // static method -----------------------------------------------------------------------------
 const setTimeSecond = (time: string): string => (Number(time)/1000).toString() + 's';
@@ -220,6 +225,8 @@ function App() {
   const timeRef = useRef<HTMLSpanElement>({} as HTMLSpanElement);
   const rangeRef = useRef<HTMLInputElement>({} as HTMLInputElement);
 
+  const [viewMode, setViewMode] = useState<ViewModeTypes>(VIEW_MODE.SINGLE)
+
 
   // method --------------------------------------------------------------------------------
 
@@ -232,16 +239,6 @@ function App() {
    */
   const createSwiperComp = useCallback(
     (swiperConf: SwiperProps, contentsFn: ContentsFn) => {
-      if (isPlaying) {
-        swiperRef.current &&
-          swiperRef.current.autoplay &&
-          swiperRef.current.autoplay.start();
-      } else {
-        swiperRef.current &&
-          swiperRef.current.autoplay &&
-          swiperRef.current.autoplay.pause();
-      }
-
       return (
         <Swiper
           centeredSlides={true}
@@ -250,9 +247,10 @@ function App() {
           onSlideChange={() => setActiveIndex(swiperRef.current.activeIndex)}
           onSwiper={(swiper) => {
             swiperRef.current = swiper;
-            swiper.autoplay.pause(); //初回は止めておく
+            swiper.autoplay.stop();
             timeRef.current.innerHTML = setTimeSecond(rangeRef.current.value);
           }}
+          onAutoplayStop={e => console.log('e',e)}
           {...swiperConf}
         >
           {slides.length > 0 && slides.map((slide, index) => contentsFn(slide, index))}
@@ -269,7 +267,7 @@ function App() {
         </Swiper>
       );
     },
-    [slides, activeIndex, isPlaying]
+    [slides, activeIndex, isPlaying, rangeRef, swiperRef]
   );
 
   /**
@@ -296,7 +294,14 @@ function App() {
   };
 
   // swiperを使ったコンポーネント作成
-  const slideComp = createSwiperComp(
+  const slideSingle = createSwiperComp(
+    {
+      slidesPerView: 1,
+    },
+    mainContents
+  );
+
+  const slideMulti = createSwiperComp(
     {
       spaceBetween: 50,
       slidesPerView: 1.4,
@@ -304,6 +309,18 @@ function App() {
     mainContents
   );
 
+
+  /**
+   * 
+   * @returns {void}
+   */
+  const setSingleMode = (): void => setViewMode(VIEW_MODE.SINGLE);
+
+  /**
+   * 
+   * @returns {void}
+   */
+  const setMultiMode = (): void => setViewMode(VIEW_MODE.MULTI);
 
   // useEffect --------------------------------------------------------------------------------
 
@@ -336,11 +353,31 @@ function App() {
     }
   }, [slides]);
 
+
+  useEffect(() => {
+    console.log(viewMode)
+  }, [viewMode]);
+
+  useEffect(() => {
+    if(!swiperRef.current || !swiperRef.current.autoplay) { return; }
+    if(isPlaying){
+      swiperRef.current.autoplay.start();
+    } else {
+      swiperRef.current.autoplay.stop();
+    }
+  }, [isPlaying]);
+
   // render --------------------------------------------------------------------------------
   return (
   <>
+ 
     <div style={{width: '85vw', margin: '0 auto'}}>
-      {slideComp}
+      <div style={{width: '100%', margin: '30px auto'}}>
+        <button style={{display: 'inline-block', padding: '3px 5px', margin: '0 8px'}} onClick={setSingleMode}>Single</button>
+        <button style={{display: 'inline-block', padding: '3px 5px', margin: '0 8px'}} onClick={setMultiMode}>Multi</button>
+      </div>
+      { viewMode === VIEW_MODE.SINGLE && slideSingle && slideSingle }
+      { viewMode === VIEW_MODE.MULTI && slideMulti && slideMulti }
     </div>
   </>
   );
